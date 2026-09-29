@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>LECTOR DE ASISTENCIA</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+
+body {
+
+  font-family: Arial, sans-serif;
+
+  background: #f1f1f1;
+
+  margin: 0;
+
+  padding: 15px;
+
+  text-align: center;
+
+}
+
+.contenedor {
+
+  max-width: 500px;
+
+  margin: auto;
+
+  background: white;
+
+  padding: 20px;
+
+  border-radius: 15px;
+
+}
+
+h1 {
+
+  font-size: 28px;
+
+}
+
+#reader {
+
+  width: 100%;
+
+  margin-top: 20px;
+
+}
+
+#resultado {
+
+  margin-top: 20px;
+
+  padding: 20px;
+
+  border-radius: 10px;
+
+  font-size: 20px;
+
+  font-weight: bold;
+
+}
+
+.ok {
+
+  background: #d4edda;
+
+  color: #155724;
+
+}
+
+.error {
+
+  background: #f8d7da;
+
+  color: #721c24;
+
+}
+
+.aviso {
+
+  background: #fff3cd;
+
+  color: #856404;
+
+}
+
+.nombre {
+
+  font-size: 24px;
+
+  margin-top: 10px;
+
+}
+
+.hora {
+
+  font-size: 20px;
+
+  margin-top: 10px;
+
+}
+
+button {
+
+  border: none;
+
+  border-radius: 10px;
+
+  padding: 15px 25px;
+
+  font-size: 18px;
+
+  font-weight: bold;
+
+  background: #1976d2;
+
+  color: white;
+
+  margin-top: 15px;
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="contenedor">
+
+
+<h1>
+📱 LECTOR QR
+</h1>
+
+
+<p>
+CONTROL DE ASISTENCIA
+</p>
+
+
+<button
+  id="boton"
+  onclick="iniciarCamara()">
+
+📷 ACTIVAR CÁMARA
+
+</button>
+
+
+<div id="reader"></div>
+
+
+<div id="resultado">
+
+📷 Presione ACTIVAR CÁMARA
+
+</div>
+
+
+</div>
+
+
+<script>
+
+
+// =====================================================
+// URL DE TU APPS SCRIPT
+// =====================================================
+
+const URL_APPS_SCRIPT =
+"https://script.google.com/macros/s/AKfycbw0bTqBQvMBUS8xyTY7QzlKVZTaUdCNQqnFRsnNAjlhV2UXd24kTQN9o0UZls3SjL0I9w/exec";
+
+
+// =====================================================
+// VARIABLES
+// =====================================================
+
+let lector = null;
+
+let procesando = false;
+
+let camaraIniciada = false;
+
+
+// =====================================================
+// INICIAR CÁMARA
+// =====================================================
+
+async function iniciarCamara() {
+
+
+  if (camaraIniciada) {
+    return;
+  }
+
+
+  mostrar(
+    "⏳ ABRIENDO CÁMARA...",
+    "aviso"
+  );
+
+
+  try {
+
+
+    // =================================================
+    // COMPROBAR ACCESO A CÁMARA
+    // =================================================
+
+    const stream =
+      await navigator.mediaDevices.getUserMedia({
+
+        video: {
+          facingMode: {
+            ideal: "environment"
+          }
+        }
+
+      });
+
+
+    // Detener cámara de prueba
+
+    stream.getTracks().forEach(
+      function(track) {
+        track.stop();
+      }
+    );
+
+
+    // =================================================
+    // CREAR LECTOR
+    // =================================================
+
+    lector =
+      new Html5Qrcode("reader");
+
+
+    // =================================================
+    // INICIAR CÁMARA
+    // =================================================
+
+    await lector.start(
+
+      {
+        facingMode: "environment"
+      },
+
+      {
+
+        fps: 10,
+
+        qrbox: {
+          width: 250,
+          height: 250
+        }
+
+      },
+
+      QRDetectado,
+
+      function(error) {
+
+        // No mostrar errores
+        // mientras busca QR.
+
+      }
+
+    );
+
+
+    camaraIniciada = true;
+
+
+    document.getElementById(
+      "boton"
+    ).style.display = "none";
+
+
+    mostrar(
+      "📷 ESCANEE EL CÓDIGO QR",
+      ""
+    );
+
+
+  }
+
+  catch(error) {
+
+
+    console.error(error);
+
+
+    mostrar(
+
+      "❌ NO SE PUDO ABRIR LA CÁMARA<br><br>" +
+
+      "Verifique que haya permitido " +
+      "el acceso a la cámara.",
+
+      "error"
+
+    );
+
+  }
+
+}
+
+
+// =====================================================
+// QR DETECTADO
+// =====================================================
+
+function QRDetectado(texto) {
+
+
+  if (procesando) {
+    return;
+  }
+
+
+  procesando = true;
+
+
+  mostrar(
+    "⏳ VERIFICANDO...",
+    "aviso"
+  );
+
+
+  // ===================================================
+  // ENVIAR C.I. A APPS SCRIPT
+  // ===================================================
+
+  fetch(
+
+    URL_APPS_SCRIPT,
+
+    {
+
+      method: "POST",
+
+      mode: "cors",
+
+      headers: {
+
+        "Content-Type":
+          "text/plain;charset=utf-8"
+
+      },
+
+      body: JSON.stringify({
+
+        ci: texto
+
+      })
+
+    }
+
+  )
+
+  .then(
+    function(response) {
+
+      return response.json();
+
+    }
+
+  )
+
+  .then(
+    function(respuesta) {
+
+      mostrarResultado(
+        respuesta
+      );
+
+    }
+
+  )
+
+  .catch(
+    function(error) {
+
+      console.error(error);
+
+      mostrar(
+
+        "❌ ERROR DE CONEXIÓN",
+
+        "error"
+
+      );
+
+
+      hablar(
+        "Error de conexión."
+      );
+
+
+      procesando = false;
+
+    }
+
+  );
+
+}
+
+
+// =====================================================
+// MOSTRAR RESULTADO
+// =====================================================
+
+function mostrarResultado(respuesta) {
+
+
+  if (
+    respuesta.estado === "OK"
+  ) {
+
+
+    mostrar(
+
+      "✅ ASISTENCIA REGISTRADA" +
+
+      '<div class="nombre">' +
+
+      respuesta.nombre +
+
+      '</div>' +
+
+      '<div class="hora">' +
+
+      'Hora: ' +
+
+      respuesta.hora +
+
+      '</div>',
+
+      "ok"
+
+    );
+
+
+    hablar(
+
+      "Asistencia registrada. " +
+
+      respuesta.nombre
+
+    );
+
+  }
+
+
+  else if (
+    respuesta.estado === "YA"
+  ) {
+
+
+    mostrar(
+
+      "⚠️ ASISTENCIA YA REGISTRADA" +
+
+      '<div class="nombre">' +
+
+      respuesta.nombre +
+
+      '</div>',
+
+      "aviso"
+
+    );
+
+
+    hablar(
+
+      "Atención. " +
+
+      respuesta.nombre +
+
+      ". La asistencia ya está registrada."
+
+    );
+
+  }
+
+
+  else if (
+    respuesta.estado === "FUERA"
+  ) {
+
+
+    mostrar(
+
+      "⏰ FUERA DEL HORARIO",
+
+      "error"
+
+    );
+
+
+    hablar(
+      "Fuera del horario de asistencia."
+    );
+
+  }
+
+
+  else {
+
+
+    mostrar(
+
+      "❌ PARTICIPANTE NO ENCONTRADO",
+
+      "error"
+
+    );
+
+
+    hablar(
+      "Participante no encontrado."
+    );
+
+  }
+
+
+  // Esperar antes del siguiente escaneo
+
+  setTimeout(
+
+    function() {
+
+      procesando = false;
+
+      mostrar(
+        "📷 ESCANEE EL SIGUIENTE QR",
+        ""
+      );
+
+    },
+
+    3000
+
+  );
+
+}
+
+
+// =====================================================
+// MOSTRAR
+// =====================================================
+
+function mostrar(
+  texto,
+  clase
+) {
+
+  const resultado =
+    document.getElementById(
+      "resultado"
+    );
+
+  resultado.innerHTML =
+    texto;
+
+  resultado.className =
+    clase;
+
+}
+
+
+// =====================================================
+// VOZ
+// =====================================================
+
+function hablar(texto) {
+
+
+  if (
+    !("speechSynthesis" in window)
+  ) {
+    return;
+  }
+
+
+  window.speechSynthesis.cancel();
+
+
+  const mensaje =
+    new SpeechSynthesisUtterance(
+      texto
+    );
+
+
+  mensaje.lang =
+    "es-ES";
+
+
+  mensaje.rate =
+    1;
+
+
+  mensaje.volume =
+    1;
+
+
+  window.speechSynthesis.speak(
+    mensaje
+  );
+
+}
+
+</script>
+
+
+</body>
+
+</html>
